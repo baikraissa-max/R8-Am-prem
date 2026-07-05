@@ -1,0 +1,6 @@
+{
+  "name": "R8 Store - Alight Motion Premium",
+  "description": "Platform Premium R8 Store khusus penjualan Alight Motion Premium 1 Tahun. Fitur lengkap: checkout modern, simulasi gerbang pembayaran (QRIS, DANA, OVO, ShopeePay), dashboard pengguna, dashboard admin, invoice PDF, riwayat pesanan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
