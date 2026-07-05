@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Mail, ArrowRight, ShieldCheck, CreditCard, Landmark, CheckCircle, 
-  Smartphone, AlertCircle, RefreshCw, Clock, Copy, Check 
+  Smartphone, AlertCircle, RefreshCw, Clock, Copy, Check, Barcode, Store 
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 
@@ -18,6 +18,7 @@ export default function CheckoutFlow({ price, onSuccess, onCancel }: CheckoutFlo
   // 2 = Payment Method Selector
   // 3 = Interactive Simulated Payment Gate
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [activeCategory, setActiveCategory] = useState<'qris' | 'va' | 'retail'>('qris');
 
   // Form states
   const [email, setEmail] = useState('');
@@ -39,14 +40,25 @@ export default function CheckoutFlow({ price, onSuccess, onCancel }: CheckoutFlo
 
   // Methods definition
   const paymentMethods = [
-    { id: 'QRIS', name: 'QRIS (Gopay/Dana/OVO)', type: 'qris', icon: CreditCard, subtitle: 'Otomatis aktif instan' },
-    { id: 'DANA', name: 'DANA e-Wallet', type: 'wallet', icon: Smartphone, subtitle: 'Bayar via DANA App' },
-    { id: 'GoPay', name: 'GoPay e-Wallet', type: 'wallet', icon: Smartphone, subtitle: 'Bayar via Gojek App' },
-    { id: 'OVO', name: 'OVO e-Wallet', type: 'wallet', icon: Smartphone, subtitle: 'Bayar via OVO App' },
-    { id: 'ShopeePay', name: 'ShopeePay', type: 'wallet', icon: Smartphone, subtitle: 'Bayar via Shopee' },
-    { id: 'Virtual Account BCA', name: 'BCA Virtual Account', type: 'va', icon: Landmark, subtitle: 'Transfer antar bank BCA' },
-    { id: 'Virtual Account Mandiri', name: 'Mandiri Virtual Account', type: 'va', icon: Landmark, subtitle: 'Transfer antar bank Mandiri' },
-    { id: 'Virtual Account BNI', name: 'BNI Virtual Account', type: 'va', icon: Landmark, subtitle: 'Transfer antar bank BNI' }
+    // QRIS & E-Wallet
+    { id: 'QRIS', name: 'QRIS (Gopay/Dana/OVO/LinkAja/ShopeePay)', type: 'qris', icon: CreditCard, subtitle: 'Pindai QR otomatis aktif instan' },
+    { id: 'DANA', name: 'DANA e-Wallet', type: 'qris', icon: Smartphone, subtitle: 'Bayar via aplikasi DANA' },
+    { id: 'GoPay', name: 'GoPay e-Wallet', type: 'qris', icon: Smartphone, subtitle: 'Bayar via aplikasi Gojek' },
+    { id: 'OVO', name: 'OVO e-Wallet', type: 'qris', icon: Smartphone, subtitle: 'Bayar via aplikasi OVO' },
+    { id: 'ShopeePay', name: 'ShopeePay e-Wallet', type: 'qris', icon: Smartphone, subtitle: 'Bayar via aplikasi Shopee' },
+    { id: 'LinkAja', name: 'LinkAja e-Wallet', type: 'qris', icon: Smartphone, subtitle: 'Bayar via aplikasi LinkAja' },
+    
+    // Virtual Accounts
+    { id: 'Virtual Account BCA', name: 'BCA Virtual Account', type: 'va', icon: Landmark, subtitle: 'Konfirmasi otomatis transfer BCA' },
+    { id: 'Virtual Account Mandiri', name: 'Mandiri Virtual Account', type: 'va', icon: Landmark, subtitle: 'Konfirmasi otomatis transfer Mandiri' },
+    { id: 'Virtual Account BNI', name: 'BNI Virtual Account', type: 'va', icon: Landmark, subtitle: 'Konfirmasi otomatis transfer BNI' },
+    { id: 'Virtual Account BRI', name: 'BRI Virtual Account', type: 'va', icon: Landmark, subtitle: 'Konfirmasi otomatis transfer BRI' },
+    { id: 'Virtual Account Permata', name: 'Permata Virtual Account', type: 'va', icon: Landmark, subtitle: 'Konfirmasi otomatis transfer Permata' },
+    { id: 'Virtual Account BSI', name: 'BSI Virtual Account', type: 'va', icon: Landmark, subtitle: 'Konfirmasi otomatis transfer BSI' },
+    
+    // Gerai Retail
+    { id: 'Alfamart', name: 'Alfamart', type: 'retail', icon: Store, subtitle: 'Bayar tunai di kasir Alfamart' },
+    { id: 'Indomaret', name: 'Indomaret', type: 'retail', icon: Store, subtitle: 'Bayar tunai di kasir Indomaret' }
   ];
 
   // Form Validation and submission for Step 1 -> Step 2
@@ -288,35 +300,75 @@ export default function CheckoutFlow({ price, onSuccess, onCancel }: CheckoutFlo
                 </div>
               )}
 
+              {/* Category tabs */}
+              <div className="flex border-b border-white/5 mb-4 text-[10px] sm:text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setActiveCategory('qris')}
+                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 cursor-pointer ${
+                    activeCategory === 'qris' 
+                      ? 'border-neon text-neon' 
+                      : 'border-transparent text-white/40 hover:text-white/80'
+                  }`}
+                >
+                  QRIS / E-Wallet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCategory('va')}
+                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 cursor-pointer ${
+                    activeCategory === 'va' 
+                      ? 'border-neon text-neon' 
+                      : 'border-transparent text-white/40 hover:text-white/80'
+                  }`}
+                >
+                  Transfer Bank (VA)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCategory('retail')}
+                  className={`flex-1 pb-2.5 text-center transition-colors border-b-2 cursor-pointer ${
+                    activeCategory === 'retail' 
+                      ? 'border-neon text-neon' 
+                      : 'border-transparent text-white/40 hover:text-white/80'
+                  }`}
+                >
+                  Gerai Retail
+                </button>
+              </div>
+
               {/* Payment Grid */}
               <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                {paymentMethods.map((method) => {
-                  const IconComponent = method.icon;
-                  return (
-                    <button
-                      key={method.id}
-                      onClick={() => handleCreateOrder(method.id)}
-                      disabled={isSubmitting}
-                      className="w-full flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-[#00ff66]/5 border border-white/5 hover:border-[#00ff66]/30 text-left cursor-pointer transition-all disabled:opacity-50 group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="bg-white/5 group-hover:bg-[#00ff66]/10 border border-white/10 group-hover:border-[#00ff66]/20 p-2 rounded-lg text-white/80 group-hover:text-neon transition-colors">
-                          <IconComponent className="w-4 h-4" />
+                {paymentMethods
+                  .filter((m) => m.type === activeCategory)
+                  .map((method) => {
+                    const IconComponent = method.icon;
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => handleCreateOrder(method.id)}
+                        disabled={isSubmitting}
+                        className="w-full flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-[#00ff00]/5 border border-white/5 hover:border-[#00ff00]/30 text-left cursor-pointer transition-all disabled:opacity-50 group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="bg-white/5 group-hover:bg-[#00ff00]/10 border border-white/10 group-hover:border-[#00ff00]/20 p-2 rounded-lg text-white/80 group-hover:text-neon transition-colors">
+                            <IconComponent className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="block text-xs font-bold text-white group-hover:text-neon transition-colors">{method.name}</span>
+                            <span className="block text-[10px] text-white/40 font-light mt-0.5">{method.subtitle}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="block text-xs font-bold text-white group-hover:text-neon transition-colors">{method.name}</span>
-                          <span className="block text-[10px] text-white/40 font-light mt-0.5">{method.subtitle}</span>
-                        </div>
-                      </div>
-                      
-                      {isSubmitting && paymentMethod === method.id ? (
-                        <RefreshCw className="w-4 h-4 text-neon animate-spin" />
-                      ) : (
-                        <ArrowRight className="w-3.5 h-3.5 text-white/20 group-hover:text-neon transition-colors group-hover:translate-x-0.5" />
-                      )}
-                    </button>
-                  );
-                })}
+                        
+                        {isSubmitting && paymentMethod === method.id ? (
+                          <RefreshCw className="w-4 h-4 text-neon animate-spin" />
+                        ) : (
+                          <ArrowRight className="w-3.5 h-3.5 text-white/20 group-hover:text-neon transition-colors group-hover:translate-x-0.5" />
+                        )}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           </motion.div>
@@ -412,7 +464,7 @@ export default function CheckoutFlow({ price, onSuccess, onCancel }: CheckoutFlo
                   </div>
                 )}
 
-                {/* Visual rendering of Virtual Account */}
+                 {/* Visual rendering of Virtual Account */}
                 {createdOrder.vaNumber && (
                   <div className="w-full space-y-4 text-center">
                     <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest block">NOMOR VIRTUAL ACCOUNT</span>
@@ -430,8 +482,33 @@ export default function CheckoutFlow({ price, onSuccess, onCancel }: CheckoutFlo
                   </div>
                 )}
 
+                {/* Visual rendering of Retail Outlet (Alfamart/Indomaret) */}
+                {createdOrder.paymentCode && (
+                  <div className="w-full space-y-4 text-center">
+                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest block">KODE PEMBAYARAN GERAI RETAIL</span>
+                    <div className="bg-white/5 border border-white/10 px-5 py-4 rounded-xl flex flex-col items-center gap-2 max-w-sm mx-auto">
+                      <span className="text-white/40 font-medium text-xs uppercase font-mono">{createdOrder.paymentMethod} CASHIER CODE</span>
+                      <span className="text-neon font-black tracking-wider text-base font-mono">{createdOrder.paymentCode}</span>
+                      
+                      {/* Fake Barcode graphic */}
+                      <div className="mt-2 flex items-center justify-center gap-1.5 opacity-75">
+                        <Barcode className="w-10 h-6 text-white" />
+                        <span className="text-[8px] text-white/50 font-mono">SCAN BARCODE SIMULATION</span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-left text-[11px] text-white/50 space-y-2 bg-white/2 p-4 rounded-xl max-w-sm mx-auto">
+                      <p className="font-bold text-white/80">Panduan Pembayaran Kasir:</p>
+                      <p>1. Datangi kasir {createdOrder.paymentMethod} terdekat.</p>
+                      <p>2. Katakan ingin melakukan pembayaran tagihan <strong>R8 Store / Alight Motion</strong>.</p>
+                      <p>3. Berikan kode pembayaran di atas ke kasir untuk di-scan.</p>
+                      <p>4. Bayar sesuai nominal dan simpan struk pembayaran Anda.</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Visual rendering of E-wallet direct simulator (OVO, DANA, GoPay etc) */}
-                {!createdOrder.qrCodeUrl && !createdOrder.vaNumber && (
+                {!createdOrder.qrCodeUrl && !createdOrder.vaNumber && !createdOrder.paymentCode && (
                   <div className="space-y-3 max-w-sm w-full mx-auto">
                     <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">PEMBAYARAN E-WALLET INSTAN</span>
                     <div className="bg-white/5 border border-white/10 p-4 rounded-xl space-y-3">

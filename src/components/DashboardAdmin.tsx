@@ -518,7 +518,7 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
                   {/* Orders Data Table */}
                   <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden">
                     <div className="overflow-x-auto w-full">
-                      <table className="w-full text-left border-collapse">
+                      <table className="w-full min-w-[700px] text-left border-collapse">
                         <thead>
                           <tr className="border-b border-white/10 bg-white/2 text-[10px] text-white/40 uppercase font-black tracking-wider">
                             <th className="p-4">Tanggal / ID</th>

@@ -72,18 +72,18 @@ export default function HomeSection({
       <section className="relative max-w-7xl mx-auto px-4 lg:px-8 pt-12 md:pt-20 pb-16 flex flex-col items-center text-center">
         {/* Neon Active Reseller Tag */}
         <motion.div 
-          className="inline-flex items-center gap-2 bg-neon/10 border border-neon/30 text-neon font-extrabold text-xs px-4 py-1.5 rounded-full mb-6 tracking-wide shadow-[0_0_15px_rgba(0,255,102,0.15)]"
+          className="inline-flex items-center gap-2 bg-neon/10 border border-neon/30 text-neon font-extrabold text-[10px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full mb-6 tracking-wide shadow-[0_0_15px_rgba(0,255,102,0.15)] text-center justify-center max-w-full"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>RESIGNER RESMI ALIGHT MOTION PREMIUM • INDONESIA</span>
+          <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="truncate">RESELLER RESMI ALIGHT MOTION PREMIUM • INDONESIA</span>
         </motion.div>
 
         {/* Hero Headline */}
         <motion.h1 
-          className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight max-w-4xl text-white leading-[1.15]"
+          className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight max-w-4xl text-white leading-[1.15]"
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
@@ -139,25 +139,25 @@ export default function HomeSection({
           <img 
             src={bannerUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop'} 
             alt="Alight Motion Premium" 
-            className="w-full aspect-[21/9] object-cover filter brightness-[0.7] scale-105 hover:scale-100 transition-transform duration-1000"
+            className="w-full aspect-[16/10] sm:aspect-[21/9] object-cover filter brightness-[0.7] scale-105 hover:scale-100 transition-transform duration-1000"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute bottom-6 left-6 right-6 z-20 text-left flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6 z-20 text-left flex flex-col md:flex-row md:items-end justify-between gap-3 sm:gap-4">
             <div>
-              <span className="text-[10px] font-extrabold uppercase bg-neon text-black px-2 py-0.5 rounded tracking-widest">BEST SELLER</span>
-              <h3 className="text-xl md:text-2xl font-black mt-2">Alight Motion Premium 1 Tahun Full Garansi</h3>
-              <p className="text-xs text-white/60">Aktivasi otomatis, legal, aman, dan tanpa login password.</p>
+              <span className="text-[9px] font-extrabold uppercase bg-neon text-black px-2 py-0.5 rounded tracking-widest">BEST SELLER</span>
+              <h3 className="text-sm sm:text-lg md:text-2xl font-black mt-1 sm:mt-2">Alight Motion Premium 1 Tahun Full Garansi</h3>
+              <p className="text-[10px] sm:text-xs text-white/60">Aktivasi otomatis, legal, aman, dan tanpa login password.</p>
             </div>
-            <div className="flex items-center gap-3 bg-[#0d0d12]/95 border border-white/10 p-3 rounded-xl backdrop-blur-md">
+            <div className="flex items-center gap-2 sm:gap-3 bg-[#0d0d12]/95 border border-white/10 p-2 sm:p-3 rounded-xl backdrop-blur-md">
               <div className="text-right">
-                <span className="block text-[10px] font-bold text-white/40 uppercase">Harga Promo</span>
-                <span className="text-neon font-black text-lg tracking-tight">
+                <span className="block text-[8px] sm:text-[10px] font-bold text-white/40 uppercase">Harga Promo</span>
+                <span className="text-neon font-black text-sm sm:text-lg tracking-tight">
                   {isLoadingSettings ? 'Memuat...' : formattedPrice}
                 </span>
               </div>
               <button
                 onClick={onCheckoutClick}
-                className="bg-neon text-black font-black text-xs px-4 py-2 rounded-lg cursor-pointer hover:bg-neon-dim transition-colors"
+                className="bg-neon text-black font-black text-[10px] sm:text-xs px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg cursor-pointer hover:bg-neon-dim transition-colors"
               >
                 Order
               </button>

@@ -202,13 +202,22 @@ app.post('/api/checkout', async (req, res) => {
     // Setup visual payment mocks
     let qrCodeUrl: string | null = null;
     let vaNumber: string | null = null;
+    let paymentCode: string | null = null;
 
     if (paymentMethod === 'QRIS') {
       // Simulate static QR Code mockup for client display
       qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION';
-    } else if (['Virtual Account', 'VA Mandiri', 'VA BCA', 'VA BNI', 'VA BRI'].includes(paymentMethod) || paymentMethod.includes('Virtual')) {
-      const bankCode = paymentMethod.includes('BCA') ? '88012' : paymentMethod.includes('Mandiri') ? '89012' : paymentMethod.includes('BNI') ? '87012' : '82012';
+    } else if (paymentMethod.includes('Virtual Account') || paymentMethod.includes('VA') || paymentMethod.includes('Bank Transfer')) {
+      const bankCode = paymentMethod.includes('BCA') ? '88012' : 
+                       paymentMethod.includes('Mandiri') ? '89012' : 
+                       paymentMethod.includes('BNI') ? '87012' : 
+                       paymentMethod.includes('BRI') ? '82012' :
+                       paymentMethod.includes('Permata') ? '85012' :
+                       paymentMethod.includes('BSI') ? '83012' : '82012';
       vaNumber = `${bankCode}${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    } else if (['Alfamart', 'Indomaret'].includes(paymentMethod)) {
+      const prefix = paymentMethod === 'Alfamart' ? 'ALFA' : 'INDO';
+      paymentCode = `${prefix}-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
     }
 
     const newOrder = {
@@ -221,7 +230,8 @@ app.post('/api/checkout', async (req, res) => {
       createdAt,
       updatedAt: createdAt,
       qrCodeUrl,
-      vaNumber
+      vaNumber,
+      paymentCode
     };
 
     // Save order to Firestore

@@ -58,7 +58,7 @@ export default function Navbar({ activeView, onViewChange, onCheckoutClick }: Na
             id="nav-search"
           >
             <Search className="w-3.5 h-3.5" />
-            <span>Cari Pesanan</span>
+            <span className="hidden sm:inline">Cari Pesanan</span>
           </button>
 
           {/* Admin Dashboard */}
@@ -72,7 +72,7 @@ export default function Navbar({ activeView, onViewChange, onCheckoutClick }: Na
             id="nav-admin"
           >
             <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Admin</span>
+            <span className="hidden sm:inline">Admin</span>
           </button>
 
           {/* Premium "Beli" Highlight Call To Action */}
@@ -80,11 +80,11 @@ export default function Navbar({ activeView, onViewChange, onCheckoutClick }: Na
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={onCheckoutClick}
-            className="flex items-center gap-1.5 bg-neon hover:bg-neon-dim text-black font-extrabold text-xs px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-[0_0_15px_rgba(0,255,102,0.3)] hover:shadow-[0_0_20px_rgba(0,255,102,0.5)]"
+            className="flex items-center gap-1.5 bg-neon hover:bg-neon-dim text-black font-extrabold text-xs px-3 sm:px-4 py-2 rounded-lg cursor-pointer transition-colors shadow-[0_0_15px_rgba(0,255,102,0.3)] hover:shadow-[0_0_20px_rgba(0,255,102,0.5)]"
             id="nav-cta"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Order</span>
+            <span className="hidden xs:inline">Order</span>
           </motion.button>
         </div>
       </div>

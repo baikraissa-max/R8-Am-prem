@@ -9,8 +9,9 @@ export interface Order {
   paymentMethod: string;
   createdAt: string;
   updatedAt: string;
-  qrCodeUrl?: string;
-  vaNumber?: string;
+  qrCodeUrl?: string | null;
+  vaNumber?: string | null;
+  paymentCode?: string | null;
 }
 
 export interface Testimonial {
