@@ -18,9 +18,54 @@ import {
   limit
 } from 'firebase/firestore';
 import dotenv from 'dotenv';
+import fs from 'fs';
 
 // Load environment variables
 dotenv.config();
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
+      providerInfo: []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 // Resolve paths for ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -37,6 +82,59 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Local storage files for fail-safe persistence fallback
+const SETTINGS_FILE = './settings.json';
+const TESTIMONIALS_FILE = './testimonials.json';
+const ORDERS_FILE = './orders.json';
+
+// Initialize local fallback files
+function initLocalFiles() {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify({
+        price: 149000,
+        bannerUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
+        bannerTitle: 'R8 Store - Alight Motion Premium 1 Tahun'
+      }, null, 2));
+    }
+    if (!fs.existsSync(TESTIMONIALS_FILE)) {
+      fs.writeFileSync(TESTIMONIALS_FILE, JSON.stringify([
+        {
+          id: 'test-1',
+          name: 'Budi Setiawan',
+          text: 'Proses instan banget! Gak nyampe 5 menit premiumnya udah aktif di email. Seller ramah pol!',
+          rating: 5,
+          date: '2026-07-04',
+          active: true
+        },
+        {
+          id: 'test-2',
+          name: 'Amalia Rizky',
+          text: 'Awalnya ragu karena harganya murah, ternyata beneran premium 1 tahun full. Desain webnya juga keren bgt modern.',
+          rating: 5,
+          date: '2026-07-03',
+          active: true
+        },
+        {
+          id: 'test-3',
+          name: 'Farhan Kurnia',
+          text: 'Sangat membantu buat nge-edit jedag jedug di Alight Motion. Tanpa watermark, semua efek kebuka. R8 Store is the best!',
+          rating: 5,
+          date: '2026-07-02',
+          active: true
+        }
+      ], null, 2));
+    }
+    if (!fs.existsSync(ORDERS_FILE)) {
+      fs.writeFileSync(ORDERS_FILE, JSON.stringify([], null, 2));
+    }
+    console.log('Local fallback JSON files verified successfully.');
+  } catch (err: any) {
+    console.error('Error initializing local fallback files:', err.message);
+  }
+}
+initLocalFiles();
 
 // Helper to seed database with default values if empty
 async function seedDatabaseIfEmpty() {
@@ -127,7 +225,19 @@ app.get('/api/settings', async (req, res) => {
       testimonials: testimonials
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.log('Firestore GET settings failed, falling back to local file storage:', error.message);
+    try {
+      const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+      const testimonials = JSON.parse(fs.readFileSync(TESTIMONIALS_FILE, 'utf-8'));
+      res.json({
+        price: settings.price,
+        bannerUrl: settings.bannerUrl,
+        bannerTitle: settings.bannerTitle,
+        testimonials: testimonials
+      });
+    } catch (localErr: any) {
+      res.status(500).json({ error: localErr.message });
+    }
   }
 });
 
@@ -150,7 +260,19 @@ app.post('/api/settings', async (req, res) => {
 
     res.json({ success: true, message: 'Pengaturan berhasil diperbarui!' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.log('Firestore POST settings failed, falling back to local file storage:', error.message);
+    try {
+      const { price, bannerUrl, bannerTitle } = req.body;
+      const settings = {
+        price: Number(price),
+        bannerUrl: bannerUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
+        bannerTitle: bannerTitle || 'R8 Store - Alight Motion Premium 1 Tahun'
+      };
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+      res.json({ success: true, message: 'Pengaturan berhasil diperbarui (Local)!' });
+    } catch (localErr: any) {
+      res.status(500).json({ error: localErr.message });
+    }
   }
 });
 
@@ -192,9 +314,14 @@ app.post('/api/checkout', async (req, res) => {
     // Get current settings to ensure accurate price if not provided
     let finalPrice = Number(price);
     if (!finalPrice) {
-      const settingsDocRef = doc(db, 'settings', 'store_settings');
-      const settingsSnap = await getDoc(settingsDocRef);
-      finalPrice = settingsSnap.exists() ? settingsSnap.data().price : 149000;
+      try {
+        const settingsDocRef = doc(db, 'settings', 'store_settings');
+        const settingsSnap = await getDoc(settingsDocRef);
+        finalPrice = settingsSnap.exists() ? settingsSnap.data().price : 149000;
+      } catch (err) {
+        const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+        finalPrice = settings.price || 149000;
+      }
     }
 
     const createdAt = now.toISOString();
@@ -234,8 +361,15 @@ app.post('/api/checkout', async (req, res) => {
       paymentCode
     };
 
-    // Save order to Firestore
-    await setDoc(doc(db, 'orders', transactionId), newOrder);
+    // Save order to Firestore or local
+    try {
+      await setDoc(doc(db, 'orders', transactionId), newOrder);
+    } catch (dbErr: any) {
+      console.log('Firestore setDoc failed during checkout, using local file fallback:', dbErr.message);
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      orders.push(newOrder);
+      fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
+    }
 
     res.json(newOrder);
   } catch (error: any) {
@@ -251,12 +385,29 @@ app.get('/api/order/:id', async (req, res) => {
     const orderSnap = await getDoc(orderDocRef);
 
     if (!orderSnap.exists()) {
+      // Try local file first before returning 404
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      const order = orders.find((o: any) => o.id === orderId);
+      if (order) {
+        return res.json(order);
+      }
       return res.status(404).json({ error: 'Pesanan tidak ditemukan!' });
     }
 
     res.json(orderSnap.data());
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.log('Firestore GET order failed, falling back to local file storage:', error.message);
+    try {
+      const orderId = req.params.id;
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      const order = orders.find((o: any) => o.id === orderId);
+      if (!order) {
+        return res.status(404).json({ error: 'Pesanan tidak ditemukan!' });
+      }
+      res.json(order);
+    } catch (localErr: any) {
+      res.status(500).json({ error: localErr.message });
+    }
   }
 });
 
@@ -282,7 +433,16 @@ app.get('/api/user/orders', async (req, res) => {
 
     res.json(orders);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.log('Firestore GET user orders failed, falling back to local file storage:', error.message);
+    try {
+      const email = (req.query.email as string).toLowerCase().trim();
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      const filteredOrders = orders.filter((o: any) => o.email === email);
+      filteredOrders.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      res.json(filteredOrders);
+    } catch (localErr: any) {
+      res.status(500).json({ error: localErr.message });
+    }
   }
 });
 
@@ -309,7 +469,14 @@ app.get('/api/orders', async (req, res) => {
 
     res.json(orders);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.log('Firestore GET all orders failed, falling back to local file storage:', error.message);
+    try {
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      orders.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      res.json(orders);
+    } catch (localErr: any) {
+      res.status(500).json({ error: localErr.message });
+    }
   }
 });
 
@@ -334,6 +501,16 @@ app.post('/api/order/:id/status', async (req, res) => {
     const orderSnap = await getDoc(orderDocRef);
 
     if (!orderSnap.exists()) {
+      // Try updating local file first before returning 404
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      const orderIndex = orders.findIndex((o: any) => o.id === orderId);
+      if (orderIndex !== -1) {
+        const now = new Date().toISOString();
+        orders[orderIndex].status = status;
+        orders[orderIndex].updatedAt = now;
+        fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
+        return res.json({ success: true, status, updatedAt: now });
+      }
       return res.status(404).json({ error: 'Pesanan tidak ditemukan!' });
     }
 
@@ -345,7 +522,23 @@ app.post('/api/order/:id/status', async (req, res) => {
 
     res.json({ success: true, status, updatedAt: now });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.log('Firestore POST order status failed, falling back to local file storage:', error.message);
+    try {
+      const orderId = req.params.id;
+      const { status } = req.body;
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      const orderIndex = orders.findIndex((o: any) => o.id === orderId);
+      if (orderIndex === -1) {
+        return res.status(404).json({ error: 'Pesanan tidak ditemukan!' });
+      }
+      const now = new Date().toISOString();
+      orders[orderIndex].status = status;
+      orders[orderIndex].updatedAt = now;
+      fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
+      res.json({ success: true, status, updatedAt: now });
+    } catch (localErr: any) {
+      res.status(500).json({ error: localErr.message });
+    }
   }
 });
 
@@ -385,11 +578,7 @@ app.post('/api/testimonials', async (req, res) => {
     }
 
     if (action === 'delete' && id) {
-      // For simplicity in this firebase client SDK web wrapper, we're doing a set/update or we can simply delete the testimonial
-      // We can delete testimonial doc
       const docRef = doc(db, 'testimonials', id);
-      // Let's mark it as inactive or setDoc empty if standard deleteDoc is preferred.
-      // Importing deleteDoc from firebase/firestore
       const { deleteDoc } = await import('firebase/firestore');
       await deleteDoc(docRef);
       return res.json({ success: true, message: 'Testimoni berhasil dihapus!' });
@@ -397,7 +586,51 @@ app.post('/api/testimonials', async (req, res) => {
 
     res.status(400).json({ error: 'Aksi tidak valid!' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.log('Firestore POST testimonials failed, falling back to local file storage:', error.message);
+    try {
+      const { action, id, name, text, rating, active } = req.body;
+      const testimonials = JSON.parse(fs.readFileSync(TESTIMONIALS_FILE, 'utf-8'));
+
+      if (action === 'create') {
+        const newTestimonial = {
+          id: `local-${Date.now()}`,
+          name,
+          text,
+          rating: Number(rating) || 5,
+          date: new Date().toISOString().split('T')[0],
+          active: active !== undefined ? active : true
+        };
+        testimonials.push(newTestimonial);
+        fs.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(testimonials, null, 2));
+        return res.json({ success: true, ...newTestimonial });
+      }
+
+      if (action === 'update' && id) {
+        const index = testimonials.findIndex((t: any) => t.id === id);
+        if (index === -1) {
+          return res.status(404).json({ error: 'Testimoni tidak ditemukan!' });
+        }
+        testimonials[index] = {
+          ...testimonials[index],
+          name: name || testimonials[index].name,
+          text: text || testimonials[index].text,
+          rating: rating !== undefined ? Number(rating) : testimonials[index].rating,
+          active: active !== undefined ? active : testimonials[index].active
+        };
+        fs.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(testimonials, null, 2));
+        return res.json({ success: true, message: 'Testimoni berhasil diperbarui!' });
+      }
+
+      if (action === 'delete' && id) {
+        const filtered = testimonials.filter((t: any) => t.id !== id);
+        fs.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(filtered, null, 2));
+        return res.json({ success: true, message: 'Testimoni berhasil dihapus!' });
+      }
+
+      res.status(400).json({ error: 'Aksi tidak valid!' });
+    } catch (localErr: any) {
+      res.status(500).json({ error: localErr.message });
+    }
   }
 });
 

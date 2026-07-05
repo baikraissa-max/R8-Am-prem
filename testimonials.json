@@ -1,0 +1,26 @@
+[
+  {
+    "id": "test-1",
+    "name": "Budi Setiawan",
+    "text": "Proses instan banget! Gak nyampe 5 menit premiumnya udah aktif di email. Seller ramah pol!",
+    "rating": 5,
+    "date": "2026-07-04",
+    "active": true
+  },
+  {
+    "id": "test-2",
+    "name": "Amalia Rizky",
+    "text": "Awalnya ragu karena harganya murah, ternyata beneran premium 1 tahun full. Desain webnya juga keren bgt modern.",
+    "rating": 5,
+    "date": "2026-07-03",
+    "active": true
+  },
+  {
+    "id": "test-3",
+    "name": "Farhan Kurnia",
+    "text": "Sangat membantu buat nge-edit jedag jedug di Alight Motion. Tanpa watermark, semua efek kebuka. R8 Store is the best!",
+    "rating": 5,
+    "date": "2026-07-02",
+    "active": true
+  }
+]

@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "StoreSettings": {
+      "title": "Store Settings",
+      "description": "Configuration settings for R8 Store",
+      "type": "object",
+      "properties": {
+        "price": { "type": "number" },
+        "bannerUrl": { "type": "string" },
+        "bannerTitle": { "type": "string" }
+      },
+      "required": ["price", "bannerUrl", "bannerTitle"]
+    },
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "Customer feedback and reviews",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "text": { "type": "string" },
+        "rating": { "type": "number" },
+        "date": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "text", "rating", "date", "active"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Alight Motion Premium order record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "product": { "type": "string" },
+        "price": { "type": "number" },
+        "status": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "qrCodeUrl": { "type": "string" },
+        "vaNumber": { "type": "string" },
+        "paymentCode": { "type": "string" }
+      },
+      "required": ["id", "email", "product", "price", "status", "paymentMethod", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/settings/store_settings": {
+      "schema": "StoreSettings",
+      "description": "Global R8 Store settings"
+    },
+    "/testimonials/{testimonialId}": {
+      "schema": "Testimonial",
+      "description": "Customer testimonials"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Individual orders placed by customers"
+    }
+  }
+}
