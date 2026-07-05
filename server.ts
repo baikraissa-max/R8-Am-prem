@@ -31,7 +31,7 @@ import firebaseConfig from './firebase-applet-config.json' assert { type: 'json'
 
 // Initialize Firebase
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(firebaseApp);
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || '(default)');
 
 const app = express();
 const PORT = 3000;
