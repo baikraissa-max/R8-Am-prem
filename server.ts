@@ -97,15 +97,19 @@ const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf-8'));
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || '(default)');
 
-const app = express();
+export const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
+// Detect Vercel environment
+const isVercel = process.env.VERCEL === '1' || process.env.NOW_REGION !== undefined;
+const dataDir = isVercel ? '/tmp' : process.cwd();
+
 // Local storage files for fail-safe persistence fallback
-const SETTINGS_FILE = path.join(process.cwd(), 'settings.json');
-const TESTIMONIALS_FILE = path.join(process.cwd(), 'testimonials.json');
-const ORDERS_FILE = path.join(process.cwd(), 'orders.json');
+const SETTINGS_FILE = path.join(dataDir, 'settings.json');
+const TESTIMONIALS_FILE = path.join(dataDir, 'testimonials.json');
+const ORDERS_FILE = path.join(dataDir, 'orders.json');
 
 // Initialize local fallback files
 function initLocalFiles() {
@@ -779,6 +783,9 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`R8 Store server running on http://localhost:${PORT}`);
-});
+// Only call app.listen if not running as a Vercel Serverless Function
+if (process.env.VERCEL !== '1' && process.env.NOW_REGION === undefined) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`R8 Store server running on http://localhost:${PORT}`);
+  });
+}
