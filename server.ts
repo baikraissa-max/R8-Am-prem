@@ -87,22 +87,25 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Read Firebase config
-import firebaseConfig from './firebase-applet-config.json' assert { type: 'json' };
+// Read Firebase config safely with multiple path fallbacks to prevent production ENOENT errors
+const firebaseConfigPath = fs.existsSync(path.join(process.cwd(), 'firebase-applet-config.json'))
+  ? path.join(process.cwd(), 'firebase-applet-config.json')
+  : path.join(__dirname, '../firebase-applet-config.json');
+const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf-8'));
 
 // Initialize Firebase
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || '(default)');
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
 // Local storage files for fail-safe persistence fallback
-const SETTINGS_FILE = './settings.json';
-const TESTIMONIALS_FILE = './testimonials.json';
-const ORDERS_FILE = './orders.json';
+const SETTINGS_FILE = path.join(process.cwd(), 'settings.json');
+const TESTIMONIALS_FILE = path.join(process.cwd(), 'testimonials.json');
+const ORDERS_FILE = path.join(process.cwd(), 'orders.json');
 
 // Initialize local fallback files
 function initLocalFiles() {
