@@ -18,7 +18,6 @@ import {
 } from 'firebase/firestore';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import firebaseConfig from './firebase-applet-config.json';
 
 // Load environment variables
 dotenv.config();
@@ -86,6 +85,36 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 // Resolve paths for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Safe fallback Firebase config (public details)
+const DEFAULT_FIREBASE_CONFIG = {
+  projectId: "gen-lang-client-0023638491",
+  appId: "1:461279695996:web:050aef12cfc3c33332e5f9",
+  apiKey: "AIzaSyDpLu59itArbw35IAlMTfV8B7rI4WJkaNc",
+  authDomain: "gen-lang-client-0023638491.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-7b481328-b57a-4e00-9480-68816e0acd79",
+  storageBucket: "gen-lang-client-0023638491.firebasestorage.app",
+  messagingSenderId: "461279695996",
+  measurementId: ""
+};
+
+let firebaseConfig: any = DEFAULT_FIREBASE_CONFIG;
+try {
+  const possiblePaths = [
+    path.join(process.cwd(), 'firebase-applet-config.json'),
+    path.join(__dirname, 'firebase-applet-config.json'),
+    path.join(__dirname, '../firebase-applet-config.json'),
+    path.join(__dirname, './firebase-applet-config.json')
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      firebaseConfig = { ...DEFAULT_FIREBASE_CONFIG, ...JSON.parse(fs.readFileSync(p, 'utf-8')) };
+      break;
+    }
+  }
+} catch (e) {
+  console.warn('Could not read external firebase-applet-config.json, using built-in config:', e);
+}
 
 // Initialize Firebase
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -779,7 +808,7 @@ app.post('/api/testimonials', async (req, res) => {
 
 
 // Vite middleware for development or serving index.html in production
-if (process.env.NODE_ENV !== 'production') {
+if (!isVercel && process.env.NODE_ENV !== 'production') {
   const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({
     server: { middlewareMode: true },
