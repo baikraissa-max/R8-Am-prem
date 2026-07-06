@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, FileText, Clipboard, History, User, CheckCircle2, Clock, 
-  XCircle, Copy, Check, ShieldCheck, Mail, ArrowRight, ArrowLeft, RefreshCw 
+  XCircle, Copy, Check, ShieldCheck, Mail, ArrowRight, ArrowLeft, RefreshCw, Upload, CheckCircle,
+  Download, Maximize2, X, Link2, ExternalLink
 } from 'lucide-react';
 import { Order } from '../types';
+import { getDirectGoogleDriveImageUrl } from '../utils/drive';
 import SuccessSection from './SuccessSection';
 
 export default function DashboardUser() {
@@ -17,12 +19,146 @@ export default function DashboardUser() {
   // Results
   const [foundOrders, setFoundOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [whatsapp, setWhatsapp] = useState('6282114757375');
   
   // Active sub-menu tab
   const [activeTab, setActiveTab] = useState<'history' | 'detail' | 'profile'>('history');
+  const [isQrisZoomed, setIsQrisZoomed] = useState(false);
 
   // Copy states
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.whatsapp) {
+          setWhatsapp(data.whatsapp);
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
+
+  // Transfer Proof Upload States
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [proofSuccessMessage, setProofSuccessMessage] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+  const [proofError, setProofError] = useState('');
+
+  // Reset proof states when selecting a different order
+  React.useEffect(() => {
+    setProofPreview(null);
+    setProofSuccessMessage('');
+    setProofError('');
+    setDragActive(false);
+  }, [selectedOrder?.id]);
+
+  const handleDownloadQRIS = async (url: string) => {
+    try {
+      const link = document.createElement('a');
+      link.href = `/api/download?url=${encodeURIComponent(url)}`;
+      link.download = 'QRIS-R8-Store.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to download QRIS image:', error);
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setProofError('Mohon pilih file gambar saja (PNG/JPG/JPEG)!');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 600;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          setProofPreview(compressedBase64);
+          setProofSuccessMessage('');
+          setProofError('');
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitProof = async () => {
+    if (!selectedOrder || !proofPreview) return;
+    setIsUploadingProof(true);
+    setProofError('');
+    try {
+      const response = await fetch(`/api/order/${selectedOrder.id}/proof`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proofOfPaymentUrl: proofPreview })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setProofSuccessMessage('Bukti transfer berhasil dikirim! Admin R8 Store akan memverifikasi pembayaran Anda secepatnya.');
+        const updatedOrder = { ...selectedOrder, proofOfPaymentUrl: proofPreview, proofOfPaymentUploadedAt: new Date().toISOString() };
+        setSelectedOrder(updatedOrder);
+        setFoundOrders(prev => prev.map(o => o.id === selectedOrder.id ? updatedOrder : o));
+      } else {
+        setProofError(data.error || 'Gagal mengirim bukti transfer.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setProofError('Gangguan koneksi saat mengirim bukti pembayaran.');
+    } finally {
+      setIsUploadingProof(false);
+    }
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,13 +471,45 @@ export default function DashboardUser() {
                       </div>
 
                       {/* Display VA or QR code based on the order */}
-                      <div className="border-t border-white/5 pt-5 flex flex-col items-center justify-center text-center">
+                      <div className="border-t border-white/5 pt-5 flex flex-col items-center justify-center text-center space-y-4">
                         {selectedOrder.qrCodeUrl ? (
-                          <div className="space-y-3">
+                          <div className="space-y-3 flex flex-col items-center">
                             <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest block">PINDAI KODE QRIS</span>
-                            <div className="bg-white p-2.5 rounded-xl border border-neon/20 inline-block">
-                              <img src={selectedOrder.qrCodeUrl} className="w-36 h-36" alt="QRIS" />
+                            <button
+                              type="button"
+                              onClick={() => setIsQrisZoomed(true)}
+                              className="group relative bg-white p-2.5 rounded-xl border border-neon/20 inline-block cursor-pointer hover:scale-[1.02] transition-all"
+                              title="Klik untuk memperbesar QRIS"
+                            >
+                              <img src={getDirectGoogleDriveImageUrl(selectedOrder.qrCodeUrl)} className="w-36 h-36" alt="QRIS" />
+                              <span className="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity gap-1 text-xs font-bold text-white">
+                                <Maximize2 className="w-3.5 h-3.5 text-neon" />
+                                Perbesar
+                              </span>
+                            </button>
+
+                            <div className="flex gap-2 justify-center mt-1">
+                              <button
+                                type="button"
+                                onClick={() => setIsQrisZoomed(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-white/80 transition-colors cursor-pointer"
+                              >
+                                <Maximize2 className="w-3 h-3 text-neon" />
+                                <span>Perbesar QR</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadQRIS(getDirectGoogleDriveImageUrl(selectedOrder.qrCodeUrl) || '')}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-neon/10 hover:bg-neon/20 border border-neon/25 rounded-lg text-[10px] font-bold text-neon transition-colors cursor-pointer shadow-[0_0_10px_rgba(0,255,102,0.05)]"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>Unduh QRIS</span>
+                              </button>
                             </div>
+
+                            <span className="block text-[10px] text-white/40 max-w-xs mx-auto leading-relaxed font-light">
+                              Pindai QRIS di atas dengan aplikasi DANA, OVO, ShopeePay, GoPay, atau m-Banking Anda.
+                            </span>
                           </div>
                         ) : selectedOrder.vaNumber ? (
                           <div className="w-full space-y-2 max-w-sm">
@@ -353,32 +521,134 @@ export default function DashboardUser() {
                           </div>
                         ) : null}
 
-                        {/* Fast Simulated checkout completion */}
+                        {/* Proof of Payment Section */}
+                        {selectedOrder.status === 'Menunggu Pembayaran' && (
+                          <div className="w-full max-w-xs border-t border-white/5 pt-4 space-y-3">
+                            <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest block">BUKTI PEMBAYARAN (TRANSFER)</span>
+                            
+                            {selectedOrder.proofOfPaymentUrl || proofSuccessMessage ? (
+                              <div className="bg-[#10b981]/5 border border-[#10b981]/20 p-3.5 rounded-xl space-y-2 text-center mx-auto w-full">
+                                <CheckCircle className="w-5 h-5 text-[#10b981] mx-auto animate-pulse" />
+                                <p className="text-[10px] text-white/80 leading-relaxed font-medium">
+                                  {proofSuccessMessage || 'Bukti transfer sudah terkirim! Admin akan segera memverifikasi pembayaran Anda.'}
+                                </p>
+                                <div className="relative inline-block mt-1">
+                                  <img 
+                                    src={selectedOrder.proofOfPaymentUrl || proofPreview || ''} 
+                                    alt="Bukti Transfer" 
+                                    className="w-20 h-auto rounded border border-white/15 bg-black mx-auto"
+                                  />
+                                  <span className="absolute -top-1 -right-1 bg-[#10b981] text-black text-[7px] font-black px-1 py-0.2 rounded-full uppercase">Sent</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-3.5 text-left w-full mx-auto">
+                                {!proofPreview ? (
+                                  <div
+                                    onDragEnter={handleDrag}
+                                    onDragOver={handleDrag}
+                                    onDragLeave={handleDrag}
+                                    onDrop={handleDrop}
+                                    className={`border border-dashed rounded-xl p-4 text-center transition-all relative ${
+                                      dragActive 
+                                        ? 'border-neon bg-neon/5' 
+                                        : 'border-white/10 bg-white/2 hover:border-white/15 hover:bg-white/4'
+                                    }`}
+                                  >
+                                    <input
+                                      type="file"
+                                      id="dashboard-proof-upload"
+                                      accept="image/*"
+                                      onChange={handleFileChange}
+                                      className="hidden"
+                                    />
+                                    <label htmlFor="dashboard-proof-upload" className="cursor-pointer block space-y-1.5">
+                                      <Upload className="w-6 h-6 text-white/30 mx-auto animate-pulse" />
+                                      <div className="space-y-0.5">
+                                        <p className="text-[11px] font-bold text-white/80">Kirim Bukti Pembayaran</p>
+                                        <p className="text-[9px] text-white/40 leading-relaxed">
+                                          Tarik file ke sini, atau <span className="text-neon underline">klik untuk memilih</span>
+                                        </p>
+                                      </div>
+                                    </label>
+                                  </div>
+                                ) : (
+                                  <div className="bg-white/2 border border-white/10 p-3 rounded-xl space-y-3 w-full">
+                                    <div className="flex gap-2.5 items-center">
+                                      <img 
+                                        src={proofPreview} 
+                                        alt="Preview" 
+                                        className="w-12 h-16 object-cover rounded border border-white/10 flex-shrink-0"
+                                      />
+                                      <div className="space-y-0.5 text-left min-w-0 flex-1">
+                                        <p className="text-[11px] font-bold text-white/95 truncate">
+                                          Screenshot ready
+                                        </p>
+                                        <p className="text-[9px] text-[#10b981] font-medium flex items-center gap-1">
+                                          <span className="w-1 h-1 bg-[#10b981] rounded-full"></span>
+                                          Siap dikirim
+                                        </p>
+                                        <button
+                                          type="button"
+                                          onClick={() => setProofPreview(null)}
+                                          className="text-[9px] text-red-400 hover:text-red-300 underline font-medium cursor-pointer"
+                                        >
+                                          Ganti
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {proofError && (
+                                      <div className="p-2 bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] rounded-lg leading-relaxed text-left">
+                                        {proofError}
+                                      </div>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      disabled={isUploadingProof}
+                                      onClick={handleSubmitProof}
+                                      className="w-full bg-neon hover:bg-neon-dim text-black font-extrabold text-[10px] py-2.5 rounded-lg flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 transition-all"
+                                    >
+                                      {isUploadingProof ? (
+                                        <>
+                                          <RefreshCw className="w-3 h-3 animate-spin" />
+                                          <span>Mengirim Bukti...</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircle className="w-3 h-3" />
+                                          <span>KIRIM BUKTI TRANSFER</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* WhatsApp confirmation button */}
                         <button
-                          onClick={async () => {
-                            try {
-                              setIsLoading(true);
-                              const res = await fetch(`/api/order/${selectedOrder.id}/status`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: 'Lunas', isSimulation: true })
-                              });
-                              if (res.ok) {
-                                const refreshed = await res.json();
-                                setSelectedOrder({ ...selectedOrder, status: 'Lunas' });
-                                // Update item in foundOrders list
-                                setFoundOrders(prev => prev.map(o => o.id === selectedOrder.id ? { ...o, status: 'Lunas' } : o));
-                              }
-                            } catch (e) {
-                              console.error(e);
-                            } finally {
-                              setIsLoading(false);
-                            }
+                          onClick={() => {
+                            const message = `Halo Admin R8 Store, saya ingin mengonfirmasi pesanan saya yang masih pending.
+
+Detail Pembayaran:
+- ID Transaksi: ${selectedOrder.id}
+- Email Alight Motion: ${selectedOrder.email}
+- Nominal Transfer: ${formattedPrice(selectedOrder.price)}
+
+Mohon dibantu cek mutasi dan diaktifkan ya Min. Terima kasih!`;
+                            const encoded = encodeURIComponent(message);
+                            window.open(`https://wa.me/${whatsapp}?text=${encoded}`, '_blank');
                           }}
-                          className="mt-6 w-full max-w-xs bg-neon text-black font-extrabold text-xs py-3 rounded-lg cursor-pointer hover:bg-neon-dim transition-colors shadow-[0_0_15px_rgba(0,255,102,0.2)]"
+                          className="w-full max-w-xs bg-[#25D366] hover:bg-[#20ba5a] text-white font-extrabold text-xs py-3 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(37,211,102,0.15)]"
                         >
-                          Simulasikan Pembayaran Lunas Sekarang
+                          <span>Konfirmasi Pembayaran via WhatsApp</span>
                         </button>
+
+
                       </div>
                     </div>
                   )}
@@ -433,6 +703,67 @@ export default function DashboardUser() {
           </div>
         </div>
       )}
+
+      {/* Zoom Lightbox Modal */}
+      <AnimatePresence>
+        {isQrisZoomed && selectedOrder?.qrCodeUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setIsQrisZoomed(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#0e0e13] border border-white/10 rounded-2xl p-6 max-w-sm w-full relative shadow-[0_0_50px_rgba(0,0,0,0.8)] text-center space-y-4"
+            >
+              <button
+                type="button"
+                onClick={() => setIsQrisZoomed(false)}
+                className="absolute top-4 right-4 text-white/40 hover:text-white p-1 rounded-full hover:bg-white/5 transition-colors cursor-pointer"
+                title="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="border-b border-white/5 pb-2">
+                <h4 className="text-sm font-black text-white uppercase tracking-wider font-mono">Pindai Kode QRIS</h4>
+                <p className="text-[10px] text-white/40 font-light mt-0.5 font-sans">Silakan scan QRIS untuk menyelesaikan transaksi Anda</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-neon/25 inline-block mx-auto shadow-inner">
+                <img 
+                  src={getDirectGoogleDriveImageUrl(selectedOrder.qrCodeUrl)} 
+                  alt="QRIS Fullsize" 
+                  className="w-64 h-64 object-contain"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadQRIS(getDirectGoogleDriveImageUrl(selectedOrder.qrCodeUrl) || '')}
+                  className="flex-1 bg-neon hover:bg-neon-dim text-black font-extrabold text-xs py-3 rounded-xl cursor-pointer flex items-center justify-center gap-1.5 shadow-[0_0_20px_rgba(0,255,102,0.15)]"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>UNDUH QRIS</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsQrisZoomed(false)}
+                  className="px-5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/75 font-semibold text-xs py-3 rounded-xl cursor-pointer transition-colors"
+                >
+                  Tutup
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

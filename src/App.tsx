@@ -21,6 +21,7 @@ export default function App() {
   const [bannerUrl, setBannerUrl] = useState('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop');
   const [bannerTitle, setBannerTitle] = useState('Alight Motion Premium 1 Tahun');
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [whatsapp, setWhatsapp] = useState('');
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   // Back to top visible state
@@ -45,6 +46,7 @@ export default function App() {
         setBannerUrl(data.bannerUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop');
         setBannerTitle(data.bannerTitle || 'Alight Motion Premium 1 Tahun');
         setTestimonials(data.testimonials || []);
+        setWhatsapp(data.whatsapp || '6282114757375');
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -125,6 +127,7 @@ export default function App() {
                   ) : (
                     <CheckoutFlow 
                       price={price} 
+                      whatsapp={whatsapp}
                       onSuccess={(order) => {
                         setCompletedOrder(order);
                         triggerToast('Aktivasi premium berhasil! Pembayaran lunas.', 'success');

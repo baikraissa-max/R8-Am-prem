@@ -1,5 +1,7 @@
 {
   "price": 149000,
   "bannerUrl": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop",
-  "bannerTitle": "R8 Store - Alight Motion Premium 1 Tahun"
+  "bannerTitle": "R8 Store - Alight Motion Premium 1 Tahun",
+  "qrisUrl": "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=00020101021126670011ID.CO.QRIS.01189360052100806412152204601153033605802ID5908R8 STORE6013JAKARTA BARAT61051151062070703A016304B2F3",
+  "whatsapp": "6282114757375"
 }

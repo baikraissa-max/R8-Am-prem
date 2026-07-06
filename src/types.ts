@@ -12,6 +12,8 @@ export interface Order {
   qrCodeUrl?: string | null;
   vaNumber?: string | null;
   paymentCode?: string | null;
+  proofOfPaymentUrl?: string | null;
+  proofOfPaymentUploadedAt?: string | null;
 }
 
 export interface Testimonial {

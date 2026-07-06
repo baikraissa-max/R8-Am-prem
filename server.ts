@@ -23,6 +23,22 @@ import fs from 'fs';
 // Load environment variables
 dotenv.config();
 
+function getDirectGoogleDriveImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  if (url.includes('lh3.googleusercontent.com')) return url;
+  if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+    const fileIdMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileIdMatch && fileIdMatch[1]) {
+      return `https://drive.google.com/uc?export=view&id=${fileIdMatch[1]}`;
+    }
+    const idParamMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idParamMatch && idParamMatch[1]) {
+      return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
+    }
+  }
+  return url;
+}
+
 enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -95,8 +111,25 @@ function initLocalFiles() {
       fs.writeFileSync(SETTINGS_FILE, JSON.stringify({
         price: 149000,
         bannerUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
-        bannerTitle: 'R8 Store - Alight Motion Premium 1 Tahun'
+        bannerTitle: 'R8 Store - Alight Motion Premium 1 Tahun',
+        qrisUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION',
+        whatsapp: '6282114757375'
       }, null, 2));
+    } else {
+      // Migrating existing file if missing properties
+      const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+      let modified = false;
+      if (!data.qrisUrl) {
+        data.qrisUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION';
+        modified = true;
+      }
+      if (!data.whatsapp) {
+        data.whatsapp = '6282114757375';
+        modified = true;
+      }
+      if (modified) {
+        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2));
+      }
     }
     if (!fs.existsSync(TESTIMONIALS_FILE)) {
       fs.writeFileSync(TESTIMONIALS_FILE, JSON.stringify([
@@ -195,6 +228,28 @@ seedDatabaseIfEmpty();
 
 // --- API ROUTES ---
 
+// CORS-free image proxy download
+app.get('/api/download', async (req, res) => {
+  try {
+    const targetUrl = req.query.url as string;
+    if (!targetUrl) {
+      return res.status(400).send('URL is required');
+    }
+    const response = await fetch(targetUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.setHeader('Content-Type', response.headers.get('Content-Type') || 'image/png');
+    res.setHeader('Content-Disposition', 'attachment; filename="QRIS-R8-Store.png"');
+    res.send(buffer);
+  } catch (error: any) {
+    console.error('Download proxy error:', error);
+    res.status(500).send('Error downloading file: ' + error.message);
+  }
+});
+
 // 1. GET Settings (includes testimonials)
 app.get('/api/settings', async (req, res) => {
   try {
@@ -203,11 +258,13 @@ app.get('/api/settings', async (req, res) => {
     let storeSettings = {
       price: 149000,
       bannerUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
-      bannerTitle: 'R8 Store - Alight Motion Premium 1 Tahun'
+      bannerTitle: 'R8 Store - Alight Motion Premium 1 Tahun',
+      qrisUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION',
+      whatsapp: '6282114757375'
     };
 
-    if (settingsSnap.exists()) {
-      storeSettings = settingsSnap.data() as typeof storeSettings;
+    if (settingsDocRef && settingsSnap.exists()) {
+      storeSettings = { ...storeSettings, ...settingsSnap.data() };
     }
 
     // Fetch active testimonials
@@ -222,6 +279,8 @@ app.get('/api/settings', async (req, res) => {
       price: storeSettings.price,
       bannerUrl: storeSettings.bannerUrl,
       bannerTitle: storeSettings.bannerTitle,
+      qrisUrl: storeSettings.qrisUrl,
+      whatsapp: storeSettings.whatsapp,
       testimonials: testimonials
     });
   } catch (error: any) {
@@ -233,6 +292,8 @@ app.get('/api/settings', async (req, res) => {
         price: settings.price,
         bannerUrl: settings.bannerUrl,
         bannerTitle: settings.bannerTitle,
+        qrisUrl: settings.qrisUrl || 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION',
+        whatsapp: settings.whatsapp || '6282114757375',
         testimonials: testimonials
       });
     } catch (localErr: any) {
@@ -244,7 +305,7 @@ app.get('/api/settings', async (req, res) => {
 // 2. POST Settings (Admin only)
 app.post('/api/settings', async (req, res) => {
   try {
-    const { price, bannerUrl, bannerTitle, password } = req.body;
+    const { price, bannerUrl, bannerTitle, qrisUrl, whatsapp, password } = req.body;
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin_r8_store';
 
     if (password !== adminPassword) {
@@ -255,18 +316,22 @@ app.post('/api/settings', async (req, res) => {
     await setDoc(settingsDocRef, {
       price: Number(price),
       bannerUrl: bannerUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
-      bannerTitle: bannerTitle || 'R8 Store - Alight Motion Premium 1 Tahun'
+      bannerTitle: bannerTitle || 'R8 Store - Alight Motion Premium 1 Tahun',
+      qrisUrl: qrisUrl || 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION',
+      whatsapp: whatsapp || '6282114757375'
     }, { merge: true });
 
     res.json({ success: true, message: 'Pengaturan berhasil diperbarui!' });
   } catch (error: any) {
     console.log('Firestore POST settings failed, falling back to local file storage:', error.message);
     try {
-      const { price, bannerUrl, bannerTitle } = req.body;
+      const { price, bannerUrl, bannerTitle, qrisUrl, whatsapp } = req.body;
       const settings = {
         price: Number(price),
         bannerUrl: bannerUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
-        bannerTitle: bannerTitle || 'R8 Store - Alight Motion Premium 1 Tahun'
+        bannerTitle: bannerTitle || 'R8 Store - Alight Motion Premium 1 Tahun',
+        qrisUrl: qrisUrl || 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION',
+        whatsapp: whatsapp || '6282114757375'
       };
       fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
       res.json({ success: true, message: 'Pengaturan berhasil diperbarui (Local)!' });
@@ -326,26 +391,30 @@ app.post('/api/checkout', async (req, res) => {
 
     const createdAt = now.toISOString();
 
-    // Setup visual payment mocks
-    let qrCodeUrl: string | null = null;
-    let vaNumber: string | null = null;
-    let paymentCode: string | null = null;
-
-    if (paymentMethod === 'QRIS') {
-      // Simulate static QR Code mockup for client display
-      qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION';
-    } else if (paymentMethod.includes('Virtual Account') || paymentMethod.includes('VA') || paymentMethod.includes('Bank Transfer')) {
-      const bankCode = paymentMethod.includes('BCA') ? '88012' : 
-                       paymentMethod.includes('Mandiri') ? '89012' : 
-                       paymentMethod.includes('BNI') ? '87012' : 
-                       paymentMethod.includes('BRI') ? '82012' :
-                       paymentMethod.includes('Permata') ? '85012' :
-                       paymentMethod.includes('BSI') ? '83012' : '82012';
-      vaNumber = `${bankCode}${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-    } else if (['Alfamart', 'Indomaret'].includes(paymentMethod)) {
-      const prefix = paymentMethod === 'Alfamart' ? 'ALFA' : 'INDO';
-      paymentCode = `${prefix}-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    // Fetch custom qrisUrl from settings
+    let configuredQrisUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=R8STORE_ALIGHTMOTION_SIMULATION';
+    try {
+      const settingsDocRef = doc(db, 'settings', 'store_settings');
+      const settingsSnap = await getDoc(settingsDocRef);
+      if (settingsSnap.exists() && settingsSnap.data().qrisUrl) {
+        configuredQrisUrl = settingsSnap.data().qrisUrl;
+      } else {
+        const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+        if (settings.qrisUrl) {
+          configuredQrisUrl = settings.qrisUrl;
+        }
+      }
+    } catch (err) {
+      try {
+        const settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+        if (settings.qrisUrl) {
+          configuredQrisUrl = settings.qrisUrl;
+        }
+      } catch (localErr) {}
     }
+
+    const qrCodeUrl = getDirectGoogleDriveImageUrl(configuredQrisUrl);
+    const finalPaymentMethod = 'QRIS All Payment';
 
     const newOrder = {
       id: transactionId,
@@ -353,12 +422,12 @@ app.post('/api/checkout', async (req, res) => {
       product: 'Alight Motion Premium 1 Tahun',
       price: finalPrice,
       status: 'Menunggu Pembayaran' as const,
-      paymentMethod,
+      paymentMethod: finalPaymentMethod,
       createdAt,
       updatedAt: createdAt,
       qrCodeUrl,
-      vaNumber,
-      paymentCode
+      vaNumber: null,
+      paymentCode: null
     };
 
     // Save order to Firestore or local
@@ -536,6 +605,63 @@ app.post('/api/order/:id/status', async (req, res) => {
       orders[orderIndex].updatedAt = now;
       fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
       res.json({ success: true, status, updatedAt: now });
+    } catch (localErr: any) {
+      res.status(500).json({ error: localErr.message });
+    }
+  }
+});
+
+// 8.5 Upload Proof of Payment (Bukti Transfer)
+app.post('/api/order/:id/proof', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const { proofOfPaymentUrl } = req.body;
+
+    if (!proofOfPaymentUrl) {
+      return res.status(400).json({ error: 'Link bukti pembayaran wajib diisi!' });
+    }
+
+    const orderDocRef = doc(db, 'orders', orderId);
+    const orderSnap = await getDoc(orderDocRef);
+    const now = new Date().toISOString();
+
+    if (!orderSnap.exists()) {
+      // Try local file storage first before returning 404
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      const orderIndex = orders.findIndex((o: any) => o.id === orderId);
+      if (orderIndex !== -1) {
+        orders[orderIndex].proofOfPaymentUrl = proofOfPaymentUrl;
+        orders[orderIndex].proofOfPaymentUploadedAt = now;
+        orders[orderIndex].updatedAt = now;
+        fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
+        return res.json({ success: true, proofOfPaymentUrl, proofOfPaymentUploadedAt: now });
+      }
+      return res.status(404).json({ error: 'Pesanan tidak ditemukan!' });
+    }
+
+    await updateDoc(orderDocRef, {
+      proofOfPaymentUrl,
+      proofOfPaymentUploadedAt: now,
+      updatedAt: now
+    });
+
+    res.json({ success: true, proofOfPaymentUrl, proofOfPaymentUploadedAt: now });
+  } catch (error: any) {
+    console.log('Firestore POST proof failed, falling back to local file storage:', error.message);
+    try {
+      const orderId = req.params.id;
+      const { proofOfPaymentUrl } = req.body;
+      const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
+      const orderIndex = orders.findIndex((o: any) => o.id === orderId);
+      if (orderIndex === -1) {
+        return res.status(404).json({ error: 'Pesanan tidak ditemukan!' });
+      }
+      const now = new Date().toISOString();
+      orders[orderIndex].proofOfPaymentUrl = proofOfPaymentUrl;
+      orders[orderIndex].proofOfPaymentUploadedAt = now;
+      orders[orderIndex].updatedAt = now;
+      fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
+      res.json({ success: true, proofOfPaymentUrl, proofOfPaymentUploadedAt: now });
     } catch (localErr: any) {
       res.status(500).json({ error: localErr.message });
     }
