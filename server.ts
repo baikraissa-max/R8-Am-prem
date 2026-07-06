@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getFirestore, 
@@ -19,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import firebaseConfig from './firebase-applet-config.json';
 
 // Load environment variables
 dotenv.config();
@@ -87,12 +87,6 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Read Firebase config safely with multiple path fallbacks to prevent production ENOENT errors
-const firebaseConfigPath = fs.existsSync(path.join(process.cwd(), 'firebase-applet-config.json'))
-  ? path.join(process.cwd(), 'firebase-applet-config.json')
-  : path.join(__dirname, '../firebase-applet-config.json');
-const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf-8'));
-
 // Initialize Firebase
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId || '(default)');
@@ -114,6 +108,22 @@ const ORDERS_FILE = path.join(dataDir, 'orders.json');
 // Initialize local fallback files
 function initLocalFiles() {
   try {
+    if (isVercel) {
+      const readOnlySettings = path.join(process.cwd(), 'settings.json');
+      const readOnlyTestimonials = path.join(process.cwd(), 'testimonials.json');
+      const readOnlyOrders = path.join(process.cwd(), 'orders.json');
+
+      if (!fs.existsSync(SETTINGS_FILE) && fs.existsSync(readOnlySettings)) {
+        fs.copyFileSync(readOnlySettings, SETTINGS_FILE);
+      }
+      if (!fs.existsSync(TESTIMONIALS_FILE) && fs.existsSync(readOnlyTestimonials)) {
+        fs.copyFileSync(readOnlyTestimonials, TESTIMONIALS_FILE);
+      }
+      if (!fs.existsSync(ORDERS_FILE) && fs.existsSync(readOnlyOrders)) {
+        fs.copyFileSync(readOnlyOrders, ORDERS_FILE);
+      }
+    }
+
     if (!fs.existsSync(SETTINGS_FILE)) {
       fs.writeFileSync(SETTINGS_FILE, JSON.stringify({
         price: 149000,
@@ -770,6 +780,7 @@ app.post('/api/testimonials', async (req, res) => {
 
 // Vite middleware for development or serving index.html in production
 if (process.env.NODE_ENV !== 'production') {
+  const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({
     server: { middlewareMode: true },
     appType: 'spa',
