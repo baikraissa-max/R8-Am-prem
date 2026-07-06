@@ -6,7 +6,7 @@ import {
   Download, Maximize2, X, Link2, FileText, ExternalLink
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
-import { getDirectGoogleDriveImageUrl } from '../utils/drive';
+import { getDirectGoogleDriveImageUrl, safeFetchJson } from '../utils/drive';
 
 interface CheckoutFlowProps {
   price: number;
@@ -106,7 +106,7 @@ export default function CheckoutFlow({ price, whatsapp = '6282114757375', onSucc
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/checkout', {
+      const data = await safeFetchJson<Order>('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,12 +116,6 @@ export default function CheckoutFlow({ price, whatsapp = '6282114757375', onSucc
           price: price
         })
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Terjadi kesalahan saat membuat pesanan.');
-      }
 
       if (data && data.qrCodeUrl) {
         data.qrCodeUrl = getDirectGoogleDriveImageUrl(data.qrCodeUrl);
@@ -141,7 +135,7 @@ export default function CheckoutFlow({ price, whatsapp = '6282114757375', onSucc
     setSimulatedPaymentLoading(true);
 
     try {
-      const response = await fetch(`/api/order/${createdOrder.id}/status`, {
+      const data = await safeFetchJson<any>(`/api/order/${createdOrder.id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,11 +143,6 @@ export default function CheckoutFlow({ price, whatsapp = '6282114757375', onSucc
           isSimulation: true
         })
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Gagal mengubah status pembayaran.');
-      }
 
       // Success callback
       const finalOrder: Order = {
@@ -282,18 +271,13 @@ Mohon dicek mutasi akun dan segera diproses aktivasi Alight Motion Premium saya 
     setIsUploadingProof(true);
     setError('');
     try {
-      const response = await fetch(`/api/order/${createdOrder.id}/proof`, {
+      await safeFetchJson<any>(`/api/order/${createdOrder.id}/proof`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proofOfPaymentUrl: proofPreview })
       });
-      const data = await response.json();
-      if (response.ok) {
-        setProofSuccessMessage('Bukti transfer berhasil dikirim! Admin R8 Store akan memverifikasi pembayaran Anda secepatnya.');
-        setCreatedOrder(prev => prev ? { ...prev, proofOfPaymentUrl: proofPreview, proofOfPaymentUploadedAt: new Date().toISOString() } : null);
-      } else {
-        setError(data.error || 'Gagal mengirim bukti transfer.');
-      }
+      setProofSuccessMessage('Bukti transfer berhasil dikirim! Admin R8 Store akan memverifikasi pembayaran Anda secepatnya.');
+      setCreatedOrder(prev => prev ? { ...prev, proofOfPaymentUrl: proofPreview, proofOfPaymentUploadedAt: new Date().toISOString() } : null);
     } catch (err: any) {
       console.error(err);
       setError('Gangguan koneksi saat mengirim bukti pembayaran.');

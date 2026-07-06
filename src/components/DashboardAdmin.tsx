@@ -7,7 +7,7 @@ import {
   FileText, Link2, ExternalLink
 } from 'lucide-react';
 import { Order, Testimonial } from '../types';
-import { getDirectGoogleDriveImageUrl } from '../utils/drive';
+import { getDirectGoogleDriveImageUrl, safeFetchJson } from '../utils/drive';
 
 interface DashboardAdminProps {
   onSettingsUpdated: () => void;
@@ -56,17 +56,11 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/admin/login', {
+      const data = await safeFetchJson<any>('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Password salah!');
-      }
 
       setToken(data.token);
       setIsAuthenticated(true);
@@ -85,8 +79,7 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
     try {
       setIsLoading(true);
       // Fetch settings & testimonials
-      const settingsRes = await fetch('/api/settings');
-      const settingsData = await settingsRes.json();
+      const settingsData = await safeFetchJson<any>('/api/settings');
       setPrice(settingsData.price);
       setBannerUrl(settingsData.bannerUrl);
       setBannerTitle(settingsData.bannerTitle);
@@ -95,12 +88,13 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
       setTestimonials(settingsData.testimonials || []);
 
       // Fetch all orders
-      const ordersRes = await fetch('/api/orders', {
-        headers: { 'Authorization': `Bearer ${adminPassword}` }
-      });
-      if (ordersRes.ok) {
-        const ordersData = await ordersRes.json();
+      try {
+        const ordersData = await safeFetchJson<Order[]>('/api/orders', {
+          headers: { 'Authorization': `Bearer ${adminPassword}` }
+        });
         setOrders(ordersData);
+      } catch (ordersErr) {
+        console.error('Error fetching admin orders:', ordersErr);
       }
     } catch (err) {
       console.error('Error fetching admin data:', err);
@@ -116,7 +110,7 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/settings', {
+      await safeFetchJson<any>('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -128,11 +122,6 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
           password
         })
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Gagal memperbarui pengaturan.');
-      }
 
       onSettingsUpdated(); // Notify parent of settings update
       alert('Pengaturan berhasil diperbarui!');
@@ -146,7 +135,7 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
   // Update single order status
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const response = await fetch(`/api/order/${orderId}/status`, {
+      await safeFetchJson<any>(`/api/order/${orderId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -154,10 +143,6 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
           password
         })
       });
-
-      if (!response.ok) {
-        throw new Error('Gagal memperbarui status order.');
-      }
 
       // Live refresh orders list state
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus as any } : o));
@@ -174,7 +159,7 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
 
     try {
       const isEdit = !!testimonialForm.id;
-      const response = await fetch('/api/testimonials', {
+      await safeFetchJson<any>('/api/testimonials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -183,11 +168,6 @@ export default function DashboardAdmin({ onSettingsUpdated }: DashboardAdminProp
           ...testimonialForm
         })
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Gagal menyimpan testimoni.');
-      }
 
       setIsTestimonialModalOpen(false);
       await fetchAdminData();

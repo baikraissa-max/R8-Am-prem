@@ -230,11 +230,11 @@ seedDatabaseIfEmpty();
 
 // CORS-free image proxy download
 app.get('/api/download', async (req, res) => {
+  const targetUrl = req.query.url as string;
+  if (!targetUrl) {
+    return res.status(400).send('URL is required');
+  }
   try {
-    const targetUrl = req.query.url as string;
-    if (!targetUrl) {
-      return res.status(400).send('URL is required');
-    }
     const response = await fetch(targetUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.statusText}`);
@@ -245,8 +245,8 @@ app.get('/api/download', async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="QRIS-R8-Store.png"');
     res.send(buffer);
   } catch (error: any) {
-    console.error('Download proxy error:', error);
-    res.status(500).send('Error downloading file: ' + error.message);
+    console.error('Download proxy error, falling back to direct redirect:', error.message);
+    res.redirect(targetUrl);
   }
 });
 

@@ -9,6 +9,7 @@ import SuccessSection from './components/SuccessSection';
 import DashboardUser from './components/DashboardUser';
 import DashboardAdmin from './components/DashboardAdmin';
 import { Order, Testimonial } from './types';
+import { safeFetchJson } from './utils/drive';
 
 export default function App() {
   const [showLoading, setShowLoading] = useState(true);
@@ -39,15 +40,12 @@ export default function App() {
   const fetchSettings = async () => {
     try {
       setIsLoadingSettings(true);
-      const res = await fetch('/api/settings');
-      if (res.ok) {
-        const data = await res.json();
-        setPrice(data.price || 149000);
-        setBannerUrl(data.bannerUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop');
-        setBannerTitle(data.bannerTitle || 'Alight Motion Premium 1 Tahun');
-        setTestimonials(data.testimonials || []);
-        setWhatsapp(data.whatsapp || '6282114757375');
-      }
+      const data = await safeFetchJson<any>('/api/settings');
+      setPrice(data.price || 149000);
+      setBannerUrl(data.bannerUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop');
+      setBannerTitle(data.bannerTitle || 'Alight Motion Premium 1 Tahun');
+      setTestimonials(data.testimonials || []);
+      setWhatsapp(data.whatsapp || '6282114757375');
     } catch (error) {
       console.error('Error fetching settings:', error);
     } finally {

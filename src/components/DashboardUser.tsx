@@ -6,7 +6,7 @@ import {
   Download, Maximize2, X, Link2, ExternalLink
 } from 'lucide-react';
 import { Order } from '../types';
-import { getDirectGoogleDriveImageUrl } from '../utils/drive';
+import { getDirectGoogleDriveImageUrl, safeFetchJson } from '../utils/drive';
 import SuccessSection from './SuccessSection';
 
 export default function DashboardUser() {
@@ -29,14 +29,13 @@ export default function DashboardUser() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/settings')
-      .then(res => res.json())
+    safeFetchJson<any>('/api/settings')
       .then(data => {
         if (data.whatsapp) {
           setWhatsapp(data.whatsapp);
         }
       })
-      .catch(err => console.error(err));
+      .catch(err => console.error('Error fetching settings:', err));
   }, []);
 
   // Transfer Proof Upload States
@@ -138,20 +137,15 @@ export default function DashboardUser() {
     setIsUploadingProof(true);
     setProofError('');
     try {
-      const response = await fetch(`/api/order/${selectedOrder.id}/proof`, {
+      await safeFetchJson<any>(`/api/order/${selectedOrder.id}/proof`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proofOfPaymentUrl: proofPreview })
       });
-      const data = await response.json();
-      if (response.ok) {
-        setProofSuccessMessage('Bukti transfer berhasil dikirim! Admin R8 Store akan memverifikasi pembayaran Anda secepatnya.');
-        const updatedOrder = { ...selectedOrder, proofOfPaymentUrl: proofPreview, proofOfPaymentUploadedAt: new Date().toISOString() };
-        setSelectedOrder(updatedOrder);
-        setFoundOrders(prev => prev.map(o => o.id === selectedOrder.id ? updatedOrder : o));
-      } else {
-        setProofError(data.error || 'Gagal mengirim bukti transfer.');
-      }
+      setProofSuccessMessage('Bukti transfer berhasil dikirim! Admin R8 Store akan memverifikasi pembayaran Anda secepatnya.');
+      const updatedOrder = { ...selectedOrder, proofOfPaymentUrl: proofPreview, proofOfPaymentUploadedAt: new Date().toISOString() };
+      setSelectedOrder(updatedOrder);
+      setFoundOrders(prev => prev.map(o => o.id === selectedOrder.id ? updatedOrder : o));
     } catch (err: any) {
       console.error(err);
       setProofError('Gangguan koneksi saat mengirim bukti pembayaran.');
@@ -176,24 +170,12 @@ export default function DashboardUser() {
 
     try {
       if (searchType === 'id') {
-        const response = await fetch(`/api/order/${queryStr}`);
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'ID Transaksi tidak ditemukan.');
-        }
-
+        const data = await safeFetchJson<Order>(`/api/order/${queryStr}`);
         setFoundOrders([data]);
         setSelectedOrder(data);
         setActiveTab('detail');
       } else {
-        const response = await fetch(`/api/user/orders?email=${encodeURIComponent(queryStr)}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Terjadi kesalahan saat memuat riwayat.');
-        }
-
+        const data = await safeFetchJson<Order[]>(`/api/user/orders?email=${encodeURIComponent(queryStr)}`);
         if (data.length === 0) {
           throw new Error('Tidak ada riwayat pesanan untuk email tersebut.');
         }

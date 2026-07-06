@@ -26,3 +26,36 @@ export function getDirectGoogleDriveImageUrl(url: string | null | undefined): st
   
   return url;
 }
+
+/**
+ * Perform a fetch request and parse the response safely.
+ * Returns the parsed JSON or throws a clean, descriptive error.
+ */
+export async function safeFetchJson<T = any>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, init);
+  const text = await response.text();
+  
+  let data: any;
+  let isJson = true;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    isJson = false;
+  }
+
+  if (!response.ok) {
+    const errorMsg = (isJson && data?.error) || text || `Server Error (${response.status})`;
+    // Clean up HTML tags if any to make it readable
+    const cleanMsg = errorMsg.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    // Limit error message length to keep UI clean
+    const truncatedMsg = cleanMsg.length > 150 ? cleanMsg.substring(0, 150) + '...' : cleanMsg;
+    throw new Error(truncatedMsg || `Terjadi kesalahan (Status ${response.status})`);
+  }
+
+  if (!isJson) {
+    throw new Error('Respon dari server tidak valid (Bukan JSON). Silakan coba lagi.');
+  }
+
+  return data as T;
+}
+
