@@ -18,7 +18,6 @@ import {
 } from 'firebase/firestore';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import firebaseConfig from './firebase-applet-config.json';
 
 // Load environment variables
 dotenv.config();
@@ -86,6 +85,30 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 // Resolve paths for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Read Firebase config safely with multiple path fallbacks to prevent production ENOENT/Import errors
+let firebaseConfig: any = {};
+try {
+  const possiblePaths = [
+    path.join(process.cwd(), 'firebase-applet-config.json'),
+    path.join(__dirname, 'firebase-applet-config.json'),
+    path.join(__dirname, '../firebase-applet-config.json'),
+    path.join(__dirname, './firebase-applet-config.json')
+  ];
+  let found = false;
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      firebaseConfig = JSON.parse(fs.readFileSync(p, 'utf-8'));
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    console.warn('firebase-applet-config.json not found in possible paths.');
+  }
+} catch (e) {
+  console.error('Error reading firebase-applet-config.json:', e);
+}
 
 // Initialize Firebase
 const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
